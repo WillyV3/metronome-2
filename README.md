@@ -7,7 +7,13 @@ that swings in sync with the actual beat timing.
 
 ## build photos
 
-soon
+![finished](photos/finished.jpg)
+
+![brain side](photos/brain.jpg)
+
+![half built](photos/half-built.jpg)
+
+![on the desk](photos/desk.jpg)
 
 ## wiring
 
