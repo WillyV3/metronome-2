@@ -1,10 +1,6 @@
-// Metronome II — ESP32-S3 SuperMini (S3FH4R2)
-// Pin map: docs/boards/esp32-s3-supermini.md — PROVISIONAL until silkscreen verify.
-// Changes vs v1 (metronome-sculpture): S3 has NO DAC, audio is I2S PDM TX (DMA-fed, same
-// blocking-write architecture) -> RC -> LM386 brick. Display is a TM1637 4-digit module:
-// two wires, driver chip does the multiplexing, colon shows the time signature as "6:8".
-// Everything else (beat engine, gated encoder, tock synth, NVS, serial hooks) is v1 verbatim.
-// Serial hooks: + - t s c j ? a  ('d' display walk gone - TM1637 needs no mapping walk)
+// metronome-2 — ESP32-S3 SuperMini
+// 6 COB filaments, TM1637, KY-040, passive buzzer, wifi AP + web remote.
+// serial hooks: + - t s c a j b ? ! W
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
@@ -14,13 +10,13 @@
 #include <driver/i2s_pdm.h>
 #include <atomic>
 
-// ---------------- pins (docs/boards/esp32-s3-supermini.md — PROVISIONAL, verify silkscreen) ----
-static const int FIL[6] = {7, 6, 5, 4, 2, 1};            // COB channels 1..6 AS WIRED 2026-08-03 (descending, GPIO3 skipped - strapping)
+// ---------------- pins ----------------
+static const int FIL[6] = {7, 6, 5, 4, 2, 1};            // COB channels 1..6 (GPIO3 skipped - strapping)
 static std::atomic<int> g_filLevel[6];                    // beat task sets, uiTask decays
-static const int TM_CLK = 9, TM_DIO = 8;                 // TM1637 AS WIRED 2026-08-03 (Willy landed DIO on 8, CLK on 9)
+static const int TM_CLK = 9, TM_DIO = 8;                 // TM1637
 static const int ENC_CLK = 10, ENC_DT = 11, ENC_SW = 12; // KY-040 (module pullups on CLK/DT)
-// Audio backend: 1 = passive buzzer (GPIO -> 1k -> NPN low-side, buzzer to 5V, FLYBACK
-// DIODE across it - the coil is inductive). 0 = PDM -> RC -> LM386 speaker brick (v1 tock).
+// 1 = passive buzzer (1k -> NPN low-side, flyback diode across the coil)
+// 0 = I2S PDM -> RC -> LM386 speaker
 #define AUDIO_BUZZER 1
 static const int AUD_PIN = 13;
 
@@ -35,8 +31,7 @@ static std::atomic<int> g_sig{2};         // index into SIGS, default 4/4
 static std::atomic<int> g_beat{-1};
 
 static int64_t periodUs() {
-  // BPM means ticks-per-minute, ALWAYS - /8 signatures no longer double the rate
-  // (surprised Willy on the bench; restore * 0.5 for unit==8 if eighth-note feel is wanted).
+  // BPM = ticks per minute regardless of the /8 signatures
   return (int64_t)(60000000.0 / g_bpm.load());
 }
 
@@ -81,17 +76,12 @@ static void synthClicks() {
 #if !AUDIO_BUZZER
 static i2s_chan_handle_t s_pdm;
 #endif
-static QueueHandle_t s_clickQ;           // uint8_t: 1 = downbeat, 0 = beat. Depth 2 ON PURPOSE:
-                                         // if audio ever stalls, stale clicks drop instead of
-                                         // machine-gunning on recovery.
+static QueueHandle_t s_clickQ;           // 1 = downbeat, 0 = beat. depth 2: stale clicks
+                                         // drop instead of machine-gunning on recovery.
 #if AUDIO_BUZZER
-// passive buzzer "tock": impacts CHIRP DOWNWARD with a dying envelope — a fixed-pitch
-// burst reads as electronic, a falling one reads as a knock. Each 1ms step drops the
-// frequency and (every 3rd step) halves the duty. Voicing knobs: F0/F1/STEPS per voice.
+// a resonant buzzer answers at its own voice whatever you play, so pitch contrast is
+// weak — the downbeat gets a longer, harder strike instead.
 static void tock(bool down) {
-  // A resonant buzzer answers at its own 2-4kHz voice whatever you play (square-wave
-  // harmonics land in the resonance), so PITCH contrast dies. RHYTHM survives:
-  // downbeat = DOUBLE strike ("da-DIK"), other beats = one soft short tick.
   auto strike = [](int freq, int ms, int duty) {
     ledcWriteTone(AUD_PIN, freq);
     ledcWrite(AUD_PIN, duty);
@@ -99,8 +89,8 @@ static void tock(bool down) {
     ledcWrite(AUD_PIN, 0);
     ledcWriteTone(AUD_PIN, 0);
   };
-  if (down) strike(800, 20, 400);      // the ONE: low thud, long — kick drum under hi-hats
-  else      strike(1100, 5, 140);      // ticks sit above it, short and soft
+  if (down) strike(800, 20, 400);      // downbeat: low long thud
+  else      strike(1100, 5, 140);      // ticks: short and soft
 }
 static void audioTask(void *) {
   uint8_t id;
@@ -127,17 +117,12 @@ static void audioTask(void *) {
 }
 #endif  // !AUDIO_BUZZER
 
-// ---------------- encoder: POLLED quadrature decoder (1kHz level sampling) ----------------
-// Event-driven decoding is history-dependent: one filtered/missed edge desyncs the state
-// machine from the physical pins, and every crosstalk burst afterward walks it from a wrong
-// state — the "once it fucks up it doesn't stop" latch Willy caught. Sampling LEVELS on a
-// 1ms clock is self-healing (state re-reads reality every tick), and microsecond crosstalk
-// bursts from the TM1637 bitbang are invisible between samples. 1kHz tracks 250 detents/s;
-// a fast human flick is ~20/s.
+// ---------------- encoder: polled quadrature, 2kHz ----------------
+// no interrupts: edge decoding desyncs on noise, level sampling re-reads the pins every
+// tick. 2-consecutive-sample confirm rejects sub-500us glitches.
 static std::atomic<int32_t> g_detents{0};
 static std::atomic<uint32_t> g_encMuteUntilMs{0};   // NVS-write bracket: see uiTask save
-// Detent microstructure log: cyc = rest->rest cycle duration in ms. A mechanical detent
-// snap is 2-30ms; fabricated cycles reveal the aggressor's corruption-window width.
+// detent log ('!' dump): cyc = rest->rest ms
 struct QEv { uint32_t ms; int16_t cyc; int8_t dir; };
 static QEv g_qev[32];
 static std::atomic<uint16_t> g_qevN{0};
@@ -145,18 +130,10 @@ static const int8_t QTAB[16] = {0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};
 static esp_timer_handle_t s_encTimer;
 
 static void encPoll(void *) {
-  // 2-consecutive-sample confirmation: a crosstalk spike can corrupt ONE sample, but the
-  // pullup restores the line in ~1us, so a spike cannot survive two polls 500us apart.
-  // Real detent edges sit >1ms per state even on fast flicks — nothing mechanical is lost
-  // at 2kHz. (Belt-and-suspenders: the serial "phantom" measurements that motivated this
-  // were later found contaminated by live bench fingers; kept because it costs 1ms latency.)
   static uint8_t qstate = 0b11, cand = 0b11, candN = 2;
   static int8_t qacc = 0;
   uint8_t ab = (uint8_t)((digitalRead(ENC_CLK) << 1) | digitalRead(ENC_DT));
-  // Muted during + shortly after NVS flash writes: the write's rail transient fabricated
-  // detents (black box: phantoms at EXACTLY the 2s save period, each re-dirtying the bpm
-  // and arming the next save — the self-sustaining latch). While muted, track the live
-  // pins so sampling resumes in sync with reality.
+  // muted around NVS flash writes; track the pins so sampling resumes in sync
   if ((int32_t)(millis() - g_encMuteUntilMs.load(std::memory_order_relaxed)) < 0) {
     qstate = cand = ab; candN = 2; qacc = 0; return;
   }
@@ -257,13 +234,9 @@ static void scheduleNext(int64_t dueUs) {
   esp_timer_start_once(s_beatTimer, dueUs > now + 50 ? dueUs - now : 50);
 }
 
-// Willy's spec (bench, 2026-08-03): while the knob is turning the metronome goes QUIET —
-// no beats, lights decay to dark — and 400ms after the last detent it restarts clean on
-// a downbeat at the new tempo. (Every fire-immediately variant machine-gunned the bar.)
+// turning = quiet: no beats, lights decay. restarts on a downbeat at the new tempo
+// once the knob settles. 900ms so slow turning stays inside one quiet session.
 static std::atomic<int64_t> g_adjustUntilUs{0};
-// 900ms: long enough that SLOW deliberate turning (detents ~500ms apart) stays inside one
-// quiet session instead of stuttering tick-quiet-tick across the boundary. Every detent
-// pushes the restart out, so continuous turning = continuous quiet, any speed.
 static const int64_t ADJUST_SETTLE_US = 900000;
 static void tempoChanged() {
   int64_t now = esp_timer_get_time();
@@ -305,9 +278,8 @@ static void beatTask(void *) {
       lastTrace = now;
     }
 
-    // lights: beats past filament 6 HOLD on 6 (7/8 must not wrap onto the downbeat lamp).
-    // The beat task only SETS levels; decay happens in uiTask with plain ledcWrite.
-    // ledcFade is banned: its fade-engine ISR raced per-beat restarts and crashed (IWDT).
+    // beats past filament 6 hold on 6. beat task sets levels, uiTask decays.
+    // no ledcFade: its fade ISR races per-beat restarts and crashes.
     int lit = min(b, 5);
     g_filLevel[lit] = down ? 255 : 150;
     ledcWrite(FIL[lit], g_filLevel[lit].load());
@@ -319,9 +291,7 @@ static Preferences prefs;
 static std::atomic<bool> g_dirty{false};
 static std::atomic<uint32_t> g_lastChangeMs{0};
 
-// Black box: phantom episodes happen ONLY while the CDC port is closed (probing suppresses
-// them), so events are logged to RAM with a source tag and dumped on '?' afterward.
-// src: k=knob detent, w=web, s=serial, S/W=sig, F=NVS save, x=press-cancel, T=uiTask stall(ms)
+// RAM event log ('!' dump). src: k=knob w=web s=serial S/W=sig F=save x=press-cancel T=ui stall
 struct Ev { uint32_t ms; char src; int16_t val; };
 static Ev g_ev[48];
 static std::atomic<uint16_t> g_evN{0};
@@ -357,10 +327,8 @@ static void nextSig(char src = 'S') {
 static void uiTask(void *) {
   int swStable = HIGH, swLast = HIGH;
   uint32_t swChangeMs = 0, swReleaseMs = 0;
-  // Pending-detent holdback, v2: the ring version warehoused turns and replayed them
-  // seconds late (black box: commits with zero detents behind them, 2010ms dribble).
-  // This is the simplest structure that still gives press-wiggle retro-cancel: one
-  // accumulator, committed 120ms after its FIRST detent, wiped by any raw SW low.
+  // detent holdback: committed 120ms after the first detent, wiped by any raw SW low
+  // (pressing wiggles CLK/DT hard enough to fake detents before the press debounces)
   int pend = 0;
   uint32_t pendSinceMs = 0, swLowRawMs = 0, lastTickMs = 0;
   bool tick = false;
@@ -391,25 +359,22 @@ static void uiTask(void *) {
     int d = g_detents.exchange(0);
     if (sw == LOW) swLowRawMs = ms;
     if ((swLowRawMs && ms - swLowRawMs < 200) || swStable == LOW) {
-      if (d || pend) evLog('x', (int16_t)(pend + d));   // press-wiggle cancel, on the record
+      if (d || pend) evLog('x', (int16_t)(pend + d));
       d = 0; pend = 0;
     }
     if (d) { if (!pend) pendSinceMs = ms; pend += d; }
     if (pend && ms - pendSinceMs >= 120) {
-      // half-quadratic acceleration (Willy: full quadratic too hot): +-1 stays precise,
-      // spins scale continuously at half the old rate.
+      // half-quadratic accel: +-1 stays precise, spins scale
       int mag = abs(pend);
       bumpTempo(mag == 1 ? pend : pend * mag / 2, 'k');
       pend = 0;
     }
-    // Settle-gated save: the old save-every-2s-while-dirty loop WAS the phantom (see
-    // encPoll comment). Save once after 10s of true quiet, encoder muted across the
-    // flash write + an 80ms recovery tail, pending detents discarded.
+    // save after 10s of quiet, encoder muted across the flash write
     if (g_dirty.load() && ms - g_lastChangeMs.load() > 10000) {
       g_encMuteUntilMs = ms + 500;
       prefs.putInt("bpm", g_bpm.load());
       prefs.putInt("sig", g_sig.load());
-      evLog('F', (int16_t)g_bpm.load());          // saves show up in the black box too
+      evLog('F', (int16_t)g_bpm.load());
       g_encMuteUntilMs = millis() + 80;
       g_detents.exchange(0);
       g_dirty = false;
@@ -417,9 +382,8 @@ static void uiTask(void *) {
   }
 }
 
-// serial hooks: exercise every user path with nothing wired. '+'/'-' = ±5bpm, 't' = ±40 sweep,
-// 's' = next signature, 'c' = force click, 'j' = reset jitter stat, '?' = state dump,
-// 'd' = display mapping walk, 'a' = audio burst (~0.6s, easier to hunt than one click).
+// serial hooks: +/- = 5bpm, t = 40 sweep, s = sig, c = click, a = click burst,
+// j = jitter reset, b = beat trace, ? = state, ! = event log, W = wifi toggle
 static void serialHook() {
   while (Serial.available()) {
     switch (Serial.read()) {
@@ -431,12 +395,12 @@ static void serialHook() {
       case 'a': for (int i = 0; i < 12; i++) { uint8_t one = 1; xQueueSend(s_clickQ, &one, 200); } break;
       case 'j': g_maxJitterUs = 0; Serial.println("jitter reset"); break;
       case 'b': g_trace = !g_trace.load(); Serial.printf("trace %d\n", g_trace.load()); break;
-      case 'W': {                       // radio kill-switch: the discriminating experiment
+      case 'W': {
         static bool off = false; off = !off;
         if (off) { WiFi.softAPdisconnect(true); WiFi.mode(WIFI_OFF); Serial.println("wifi OFF"); }
         else { WiFi.mode(WIFI_AP); WiFi.softAP("Metronome", "metronome"); Serial.println("wifi ON"); }
       } break;
-      case '!': {                       // black box dump: oldest -> newest
+      case '!': {                       // event log dump, oldest -> newest
         uint16_t n = g_evN.load();
         uint16_t start = n > 48 ? n - 48 : 0;
         Serial.printf("[blackbox] %u events total, showing %u:\n", n, n - start);
@@ -461,10 +425,8 @@ static void serialHook() {
 }
 
 // ---------------- phone remote: standalone AP + one-page web UI ----------------
-// The metronome TRAVELS (Willy: no home-network reliance) — it broadcasts its own WPA2
-// AP. Phone joins "Metronome" / pass "metronome", opens http://192.168.4.1 (AP default
-// IP, stable, bookmarkable). All controls route through bumpTempo()/nextSig(), so the
-// quiet-adjust sessions, readout windows, and NVS saves behave exactly like the knob.
+// join "Metronome" / "metronome", open http://192.168.4.1. controls share the knob's
+// code paths so remote changes behave exactly like turning it.
 static WebServer s_web(80);
 static const char INDEX_HTML[] = R"HTML(<!doctype html><html><head>
 <meta name=viewport content="width=device-width,initial-scale=1"><title>Metronome</title><style>
@@ -504,11 +466,8 @@ button:active{background:#274}
 <button onclick="view(1)">done</button></div>
 </div>
 <script>
-// The arm hits its extremes exactly ON the device's beats: /api/state carries nextMs
-// (time to next beat) + periodMs. Client keeps a continuous phase t0 (epoch of an
-// extreme) and each poll NUDGES t0 by the smallest modular correction, so the swing
-// alternates sides properly and never snaps. Quiet-adjust sessions ease the arm to
-// center; the restart downbeat re-launches it.
+// arm extremes land on the device's beats: keep a continuous phase t0 and nudge it
+// by the smallest modular correction each poll so the swing never snaps sides.
 var per=600,t0=0,quiet=false,th=0;
 function show(s){
  bpm.textContent=s.bpm;sig.textContent=s.beats+"/"+s.unit;bpmlbl.textContent=s.bpm;
@@ -544,7 +503,7 @@ static void webTask(void *) {
 }
 static void webStart() {
   WiFi.mode(WIFI_AP);
-  WiFi.softAP("Metronome", "metronome");   // WPA2 — an open AP would let the whole gig conduct
+  WiFi.softAP("Metronome", "metronome");   // an open AP would let the whole gig conduct
   s_web.on("/", [] { s_web.send_P(200, "text/html", INDEX_HTML); });
   s_web.on("/api/state", webSendState);
   s_web.on("/api/bpm", [] {
@@ -560,13 +519,10 @@ static void webStart() {
 
 void setup() {
   Serial.begin(115200);
-  // Port-closed printf BLOCKS the calling task up to 20x100ms (HWCDC.cpp bounded wait)
-  // — the "2010ms" phantom clock. uiTask froze 2s per tempo print whenever no host was
-  // attached, freezing the filament-decay PWM at constant duty, which aliased into slow
-  // coherent quadrature walks on the adjacent encoder rows. Zero = drop, never block.
+  // port-closed CDC writes block the caller up to 2s once the TX ring fills — drop instead
   Serial.setTxTimeoutMs(0);
   delay(300);
-  Serial.println("\n== metronome sculpture ==");
+  Serial.println("\n== metronome-2 ==");
 
   prefs.begin("metro");
   g_bpm = constrain(prefs.getInt("bpm", 120), 30, 300);
@@ -583,8 +539,7 @@ void setup() {
   g_sigUntilUs = esp_timer_get_time() + 1500000;   // greet with the signature
   for (int p : FIL) { ledcAttach(p, 5000, 8); ledcWrite(p, 0); }
 
-  // S3 has no input-only pins, so internal pullups hold CLK/DT quiet until the KY-040
-  // is wired (v1's pins 34/35 couldn't do this - floating noise stormed the tempo).
+  // internal pullups on all three encoder lines
   pinMode(ENC_CLK, INPUT_PULLUP);
   pinMode(ENC_DT, INPUT_PULLUP);
   pinMode(ENC_SW, INPUT_PULLUP);
@@ -613,9 +568,7 @@ void setup() {
   xTaskCreatePinnedToCore(audioTask, "audio", 3072, nullptr, 5, nullptr, 1);
   xTaskCreatePinnedToCore(beatTask, "beat", 3072, nullptr, 6, &s_beatTask, 1);
   xTaskCreatePinnedToCore(uiTask, "ui", 3072, nullptr, 3, nullptr, 1);
-  // display goes LOW priority on the OTHER core: its bitbang busy-waits were starving
-  // uiTask (knob + light decay) during tempo readouts — lights froze bright, detents
-  // batched. Least-critical task, isolated where it can't preempt anything that matters.
+  // display on core 0, low prio: its bitbang busy-waits must not preempt the ui
   xTaskCreatePinnedToCore(displayTask, "disp", 2048, nullptr, 2, nullptr, 0);
 
   static const esp_timer_create_args_t targs = {
