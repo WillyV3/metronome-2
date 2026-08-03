@@ -1,0 +1,851 @@
+{
+  "title": "Metronome II \u2014 S3 SuperMini \u00b7 TM1637 \u00b7 COB brick \u00b7 buzzer  (pins PROVISIONAL until silkscreen verify)",
+  "width": 2500,
+  "height": 1650,
+  "routing": "ortho",
+  "components": [
+    {
+      "type": "bus",
+      "id": "v5",
+      "x1": 110,
+      "x2": 2400,
+      "y": 70,
+      "label": "5V",
+      "color": "red"
+    },
+    {
+      "type": "bus",
+      "id": "gnd",
+      "x1": 110,
+      "x2": 2400,
+      "y": 1560,
+      "label": "GND",
+      "color": "black"
+    },
+    {
+      "id": "mcu",
+      "part": "esp32s3supermini",
+      "x": 1180,
+      "y": 420,
+      "w": 170,
+      "label": "pins PROVISIONAL - verify silkscreen"
+    },
+    {
+      "id": "disp",
+      "part": "tm1637x4",
+      "x": 1950,
+      "y": 180,
+      "w": 230,
+      "label": "tempo / beats / 6:8"
+    },
+    {
+      "id": "enc",
+      "part": "ky040",
+      "x": 880,
+      "y": 1120,
+      "w": 150,
+      "label": "turn=tempo  click=time sig"
+    },
+    {
+      "id": "bz",
+      "part": "buzzer12",
+      "x": 2100,
+      "y": 760,
+      "w": 110,
+      "label": "TMB12A05 passive"
+    },
+    {
+      "id": "dz",
+      "part": "diode",
+      "x": 2090,
+      "y": 950,
+      "label": "1N4148 flyback"
+    },
+    {
+      "id": "qb",
+      "part": "npn",
+      "x": 1850,
+      "y": 900,
+      "label": "buzzer"
+    },
+    {
+      "id": "rbz",
+      "part": "resistor",
+      "x": 1600,
+      "y": 960,
+      "label": "820R"
+    },
+    {
+      "id": "vm",
+      "part": "voltmeter2w",
+      "x": 300,
+      "y": 1300,
+      "w": 140,
+      "label": "rail gauge"
+    },
+    {
+      "id": "rs1",
+      "part": "resistor",
+      "x": 150,
+      "y": 120,
+      "label": "47R 1W"
+    },
+    {
+      "id": "cob1",
+      "part": "cobfil",
+      "x": 360,
+      "y": 120,
+      "w": 200,
+      "label": "COB 1"
+    },
+    {
+      "id": "q1",
+      "part": "npn",
+      "x": 700,
+      "y": 80
+    },
+    {
+      "id": "rb1",
+      "part": "resistor",
+      "x": 950,
+      "y": 184,
+      "label": "820R"
+    },
+    {
+      "id": "rs2",
+      "part": "resistor",
+      "x": 150,
+      "y": 270,
+      "label": "47R 1W"
+    },
+    {
+      "id": "cob2",
+      "part": "cobfil",
+      "x": 360,
+      "y": 270,
+      "w": 200,
+      "label": "COB 2"
+    },
+    {
+      "id": "q2",
+      "part": "npn",
+      "x": 720,
+      "y": 230
+    },
+    {
+      "id": "rb2",
+      "part": "resistor",
+      "x": 962,
+      "y": 334,
+      "label": "820R"
+    },
+    {
+      "id": "rs3",
+      "part": "resistor",
+      "x": 150,
+      "y": 420,
+      "label": "47R 1W"
+    },
+    {
+      "id": "cob3",
+      "part": "cobfil",
+      "x": 360,
+      "y": 420,
+      "w": 200,
+      "label": "COB 3"
+    },
+    {
+      "id": "q3",
+      "part": "npn",
+      "x": 740,
+      "y": 380
+    },
+    {
+      "id": "rb3",
+      "part": "resistor",
+      "x": 974,
+      "y": 484,
+      "label": "820R"
+    },
+    {
+      "id": "rs4",
+      "part": "resistor",
+      "x": 150,
+      "y": 570,
+      "label": "47R 1W"
+    },
+    {
+      "id": "cob4",
+      "part": "cobfil",
+      "x": 360,
+      "y": 570,
+      "w": 200,
+      "label": "COB 4"
+    },
+    {
+      "id": "q4",
+      "part": "npn",
+      "x": 760,
+      "y": 530
+    },
+    {
+      "id": "rb4",
+      "part": "resistor",
+      "x": 986,
+      "y": 634,
+      "label": "820R"
+    },
+    {
+      "id": "rs5",
+      "part": "resistor",
+      "x": 150,
+      "y": 720,
+      "label": "47R 1W"
+    },
+    {
+      "id": "cob5",
+      "part": "cobfil",
+      "x": 360,
+      "y": 720,
+      "w": 200,
+      "label": "COB 5"
+    },
+    {
+      "id": "q5",
+      "part": "npn",
+      "x": 780,
+      "y": 680
+    },
+    {
+      "id": "rb5",
+      "part": "resistor",
+      "x": 998,
+      "y": 784,
+      "label": "820R"
+    },
+    {
+      "id": "rs6",
+      "part": "resistor",
+      "x": 150,
+      "y": 870,
+      "label": "47R 1W"
+    },
+    {
+      "id": "cob6",
+      "part": "cobfil",
+      "x": 360,
+      "y": 870,
+      "w": 200,
+      "label": "COB 6"
+    },
+    {
+      "id": "q6",
+      "part": "npn",
+      "x": 800,
+      "y": 830
+    },
+    {
+      "id": "rb6",
+      "part": "resistor",
+      "x": 1010,
+      "y": 934,
+      "label": "820R"
+    }
+  ],
+  "wires": [
+    {
+      "from": [
+        "mcu",
+        "5V"
+      ],
+      "to": [
+        "v5"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "mcu",
+        "GND"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "disp",
+        "VCC"
+      ],
+      "to": [
+        "v5"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "disp",
+        "GND"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO9"
+      ],
+      "to": [
+        "disp",
+        "CLK"
+      ],
+      "color": "cyan"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO8"
+      ],
+      "to": [
+        "disp",
+        "DIO"
+      ],
+      "color": "pink"
+    },
+    {
+      "from": [
+        "enc",
+        "+"
+      ],
+      "to": [
+        "v5"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "enc",
+        "GND"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "enc",
+        "CLK"
+      ],
+      "to": [
+        "mcu",
+        "IO10"
+      ],
+      "color": "cyan"
+    },
+    {
+      "from": [
+        "enc",
+        "DT"
+      ],
+      "to": [
+        "mcu",
+        "IO11"
+      ],
+      "color": "pink"
+    },
+    {
+      "from": [
+        "enc",
+        "SW"
+      ],
+      "to": [
+        "mcu",
+        "IO12"
+      ],
+      "color": "purple"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO13"
+      ],
+      "to": [
+        "rbz",
+        "Pin 1"
+      ],
+      "color": "brown"
+    },
+    {
+      "from": [
+        "rbz",
+        "Pin 0"
+      ],
+      "to": [
+        "qb",
+        "B"
+      ],
+      "color": "brown"
+    },
+    {
+      "from": [
+        "v5"
+      ],
+      "to": [
+        "bz",
+        "+"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "bz",
+        "-"
+      ],
+      "to": [
+        "qb",
+        "C"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "qb",
+        "E"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "dz",
+        "cathode"
+      ],
+      "to": [
+        "bz",
+        "+"
+      ],
+      "color": "gray"
+    },
+    {
+      "from": [
+        "dz",
+        "anode"
+      ],
+      "to": [
+        "bz",
+        "-"
+      ],
+      "color": "gray"
+    },
+    {
+      "from": [
+        "vm",
+        "+"
+      ],
+      "to": [
+        "v5"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "vm",
+        "-"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "v5"
+      ],
+      "to": [
+        "rs1",
+        "Pin 0"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "rs1",
+        "Pin 1"
+      ],
+      "to": [
+        "cob1",
+        "+"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "cob1",
+        "-"
+      ],
+      "to": [
+        "q1",
+        "C"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "q1",
+        "E"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO7"
+      ],
+      "to": [
+        "rb1",
+        "Pin 1"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "rb1",
+        "Pin 0"
+      ],
+      "to": [
+        "q1",
+        "B"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "v5"
+      ],
+      "to": [
+        "rs2",
+        "Pin 0"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "rs2",
+        "Pin 1"
+      ],
+      "to": [
+        "cob2",
+        "+"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "cob2",
+        "-"
+      ],
+      "to": [
+        "q2",
+        "C"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "q2",
+        "E"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO6"
+      ],
+      "to": [
+        "rb2",
+        "Pin 1"
+      ],
+      "color": "orange"
+    },
+    {
+      "from": [
+        "rb2",
+        "Pin 0"
+      ],
+      "to": [
+        "q2",
+        "B"
+      ],
+      "color": "orange"
+    },
+    {
+      "from": [
+        "v5"
+      ],
+      "to": [
+        "rs3",
+        "Pin 0"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "rs3",
+        "Pin 1"
+      ],
+      "to": [
+        "cob3",
+        "+"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "cob3",
+        "-"
+      ],
+      "to": [
+        "q3",
+        "C"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "q3",
+        "E"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO5"
+      ],
+      "to": [
+        "rb3",
+        "Pin 1"
+      ],
+      "color": "yellow"
+    },
+    {
+      "from": [
+        "rb3",
+        "Pin 0"
+      ],
+      "to": [
+        "q3",
+        "B"
+      ],
+      "color": "yellow"
+    },
+    {
+      "from": [
+        "v5"
+      ],
+      "to": [
+        "rs4",
+        "Pin 0"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "rs4",
+        "Pin 1"
+      ],
+      "to": [
+        "cob4",
+        "+"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "cob4",
+        "-"
+      ],
+      "to": [
+        "q4",
+        "C"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "q4",
+        "E"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO4"
+      ],
+      "to": [
+        "rb4",
+        "Pin 1"
+      ],
+      "color": "green"
+    },
+    {
+      "from": [
+        "rb4",
+        "Pin 0"
+      ],
+      "to": [
+        "q4",
+        "B"
+      ],
+      "color": "green"
+    },
+    {
+      "from": [
+        "v5"
+      ],
+      "to": [
+        "rs5",
+        "Pin 0"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "rs5",
+        "Pin 1"
+      ],
+      "to": [
+        "cob5",
+        "+"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "cob5",
+        "-"
+      ],
+      "to": [
+        "q5",
+        "C"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "q5",
+        "E"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO2"
+      ],
+      "to": [
+        "rb5",
+        "Pin 1"
+      ],
+      "color": "blue"
+    },
+    {
+      "from": [
+        "rb5",
+        "Pin 0"
+      ],
+      "to": [
+        "q5",
+        "B"
+      ],
+      "color": "blue"
+    },
+    {
+      "from": [
+        "v5"
+      ],
+      "to": [
+        "rs6",
+        "Pin 0"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "rs6",
+        "Pin 1"
+      ],
+      "to": [
+        "cob6",
+        "+"
+      ],
+      "color": "red"
+    },
+    {
+      "from": [
+        "cob6",
+        "-"
+      ],
+      "to": [
+        "q6",
+        "C"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "q6",
+        "E"
+      ],
+      "to": [
+        "gnd"
+      ],
+      "color": "black"
+    },
+    {
+      "from": [
+        "mcu",
+        "IO1"
+      ],
+      "to": [
+        "rb6",
+        "Pin 1"
+      ],
+      "color": "violet"
+    },
+    {
+      "from": [
+        "rb6",
+        "Pin 0"
+      ],
+      "to": [
+        "q6",
+        "B"
+      ],
+      "color": "violet"
+    }
+  ]
+}
