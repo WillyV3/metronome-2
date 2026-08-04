@@ -7,7 +7,7 @@ that swings in sync with the actual beat timing.
 
 ![brain side](photos/brain.jpg)
 
-[demo video](https://github.io/WillyV3/metronome-2)
+[demo video](https://WillyV3.github.io/metronome-2)
 
 ## wiring
 
