@@ -221,6 +221,7 @@ static void displayTask(void *) {
 
 // ---------------- beat engine: one-shot self-scheduling against absolute targets ----------
 static TaskHandle_t s_beatTask;
+static TaskHandle_t s_dispTask;
 static esp_timer_handle_t s_beatTimer;
 static std::atomic<int64_t> g_targetUs{0};     // when the NEXT beat is due (absolute)
 static std::atomic<int64_t> g_lastBeatUs{0};   // when the LAST beat fired (phase anchor)
@@ -330,17 +331,25 @@ static void nextSig(char src = 'S') {
 // RTC pullup kept alive). sig is restored to its pre-tap value so the double-tap's
 // two nextSig() firings leave no trace after wake.
 static void goSleep(int restoreSig) {
+  esp_timer_stop(s_beatTimer);
+  vTaskSuspend(s_dispTask);                     // stop redraws so SHHH survives
+  vTaskDelay(pdMS_TO_TICKS(20));
+  static const uint8_t SHHH[4] = {0x6D, 0x76, 0x76, 0x76};
+  tmShow(SHHH, 0);   // min brightness; TM1637 multiplexes on its own, so SHHH
+                     // stays lit through deep sleep (~2mA vs dark)
   g_sig = restoreSig;
   prefs.putInt("bpm", g_bpm.load());
   prefs.putInt("sig", restoreSig);
-  for (int pin : FIL) ledcWrite(pin, 0);
-  ledcWrite(AUD_PIN, 0);
-  tmStart(); tmByte(0x80); tmStop();            // display off
+  // high-Z LEDC pins float the transistor bases in deep sleep (= all lights ON):
+  // detach, drive LOW, and hold-latch every driver pin through sleep.
+  for (int pin : FIL) { ledcDetach(pin); pinMode(pin, OUTPUT); digitalWrite(pin, LOW); gpio_hold_en((gpio_num_t)pin); }
+  ledcDetach(AUD_PIN); pinMode(AUD_PIN, OUTPUT); digitalWrite(AUD_PIN, LOW); gpio_hold_en((gpio_num_t)AUD_PIN);
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_OFF);
   Serial.println("deep sleep (double tap)");
   while (digitalRead(ENC_SW) == LOW) delay(10); // arm only after release, else instant wake
-  delay(100);
+  delay(200);
+  gpio_deep_sleep_hold_en();
   rtc_gpio_pullup_en((gpio_num_t)ENC_SW);
   rtc_gpio_pulldown_dis((gpio_num_t)ENC_SW);
   esp_sleep_enable_ext0_wakeup((gpio_num_t)ENC_SW, 0);
@@ -602,6 +611,9 @@ void setup() {
   Serial.printf("click synth: %lu us for %dx2 samples\n", (unsigned long)(micros() - t0), NSAMP);
 #endif
 
+  gpio_deep_sleep_hold_dis();                    // release sleep-held driver pins on wake
+  for (int pin : FIL) gpio_hold_dis((gpio_num_t)pin);
+  gpio_hold_dis((gpio_num_t)AUD_PIN);
   pinMode(TM_CLK, OUTPUT); pinMode(TM_DIO, OUTPUT);
   digitalWrite(TM_CLK, HIGH); digitalWrite(TM_DIO, HIGH);
   g_sigUntilUs = esp_timer_get_time() + 1500000;   // greet with the signature
@@ -637,7 +649,7 @@ void setup() {
   xTaskCreatePinnedToCore(beatTask, "beat", 3072, nullptr, 6, &s_beatTask, 1);
   xTaskCreatePinnedToCore(uiTask, "ui", 3072, nullptr, 3, nullptr, 1);
   // display on core 0, low prio: its bitbang busy-waits must not preempt the ui
-  xTaskCreatePinnedToCore(displayTask, "disp", 2048, nullptr, 2, nullptr, 0);
+  xTaskCreatePinnedToCore(displayTask, "disp", 2048, nullptr, 2, &s_dispTask, 0);
 
   static const esp_timer_create_args_t targs = {
       .callback = beatTimerCb, .arg = nullptr,
