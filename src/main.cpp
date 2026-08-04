@@ -7,6 +7,8 @@
 #include <WebServer.h>
 #include <esp_timer.h>
 #include <esp_task_wdt.h>
+#include <esp_sleep.h>
+#include <driver/rtc_io.h>
 #include <driver/i2s_pdm.h>
 #include <atomic>
 
@@ -324,13 +326,35 @@ static void nextSig(char src = 'S') {
   Serial.printf("time signature %d/%d\n", SIGS[s].beats, SIGS[s].unit);
 }
 
+// double-tap on the encoder button -> deep sleep; any press wakes (ext0 on GPIO12,
+// RTC pullup kept alive). sig is restored to its pre-tap value so the double-tap's
+// two nextSig() firings leave no trace after wake.
+static void goSleep(int restoreSig) {
+  g_sig = restoreSig;
+  prefs.putInt("bpm", g_bpm.load());
+  prefs.putInt("sig", restoreSig);
+  for (int pin : FIL) ledcWrite(pin, 0);
+  ledcWrite(AUD_PIN, 0);
+  tmStart(); tmByte(0x80); tmStop();            // display off
+  WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_OFF);
+  Serial.println("deep sleep (double tap)");
+  while (digitalRead(ENC_SW) == LOW) delay(10); // arm only after release, else instant wake
+  delay(100);
+  rtc_gpio_pullup_en((gpio_num_t)ENC_SW);
+  rtc_gpio_pulldown_dis((gpio_num_t)ENC_SW);
+  esp_sleep_enable_ext0_wakeup((gpio_num_t)ENC_SW, 0);
+  esp_deep_sleep_start();
+}
+
 static void uiTask(void *) {
   int swStable = HIGH, swLast = HIGH;
   uint32_t swChangeMs = 0, swReleaseMs = 0;
   // detent holdback: committed 120ms after the first detent, wiped by any raw SW low
   // (pressing wiggles CLK/DT hard enough to fake detents before the press debounces)
   int pend = 0;
-  uint32_t pendSinceMs = 0, swLowRawMs = 0, lastTickMs = 0;
+  uint32_t pendSinceMs = 0, swLowRawMs = 0, lastTickMs = 0, lastPressMs = 0;
+  int sigBeforeTap = -1;
   bool tick = false;
   for (;;) {
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -353,8 +377,12 @@ static void uiTask(void *) {
     if (sw != swLast) { swLast = sw; swChangeMs = ms; }
     if (ms - swChangeMs > 30 && sw != swStable) {
       swStable = sw;
-      if (sw == LOW) nextSig();
-      else swReleaseMs = ms;
+      if (sw == LOW) {
+        if (ms - lastPressMs < 400 && sigBeforeTap >= 0) goSleep(sigBeforeTap);
+        sigBeforeTap = g_sig.load();
+        lastPressMs = ms;
+        nextSig();
+      } else swReleaseMs = ms;
     }
     int d = g_detents.exchange(0);
     if (sw == LOW) swLowRawMs = ms;
