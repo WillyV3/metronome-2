@@ -429,33 +429,62 @@ static void serialHook() {
 // code paths so remote changes behave exactly like turning it.
 static WebServer s_web(80);
 static const char INDEX_HTML[] = R"HTML(<!doctype html><html><head>
-<meta name=viewport content="width=device-width,initial-scale=1"><title>Metronome</title><style>
-body{margin:0;background:#111;color:#eee;font-family:system-ui;overflow:hidden}
-#pv{display:flex;height:100vh;flex-direction:column;align-items:center}
-#scene{position:relative;width:100vw;height:100vh}
-.pyr{position:absolute;left:50%;bottom:0;transform:translateX(-50%);clip-path:polygon(50% 0,100% 100%,0 100%)}
-#pyrO{width:66vw;height:82vh;background:#3a3a3a}
-#pyrI{width:64vw;height:80.5vh;background:#191919}
-#arm{position:absolute;left:50%;bottom:15vh;width:1.4vw;height:60vh;margin-left:-.7vw;background:#c8c8c8;border-radius:1vw;transform-origin:50% 100%}
-#bob{position:absolute;left:50%;transform:translateX(-50%);width:8vw;height:5.5vw;background:#2f6b40;border:1px solid #6fbf7f;border-radius:1.2vw}
-#pivot{position:absolute;left:50%;bottom:15vh;width:3.6vw;height:3.6vw;margin:0 0 -1.8vw -1.8vw;background:#888;border-radius:50%}
-#bpmlbl{position:absolute;left:50%;bottom:5vh;transform:translateX(-50%);font-size:6vw;color:#7c7;font-variant-numeric:tabular-nums}
-#beatlbl{position:absolute;left:50%;top:4vh;transform:translateX(-50%);font-size:13vw;color:#7c7;font-variant-numeric:tabular-nums}
-#gear{position:fixed;right:4vw;bottom:4vh;background:#222;color:#999;border:1px solid #444;border-radius:10px;font-size:4.5vw;padding:2vw 4vw}
-#cv{display:none;height:100vh;flex-direction:column;align-items:center;gap:4vh;padding-top:6vh}
-#bpm{font-size:26vw;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
-#sig{font-size:9vw;color:#7c7}
+<meta name=viewport content="width=device-width,initial-scale=1,user-scalable=no"><title>Metronome</title><style>
+*{margin:0;box-sizing:border-box}
+body{height:100vh;overflow:hidden;font-family:Georgia,serif;background:
+ radial-gradient(130vw 90vh at 50% 26%,#2a1e11,#0d0906 72%)}
+#desk{position:fixed;bottom:0;width:100%;height:22vh;
+ background:linear-gradient(#0000 0,#0007 100%),
+ repeating-linear-gradient(90deg,#563619 0 4vw,#4c2f16 4vw 9vw,#5c3a1c 9vw 13vw);
+ box-shadow:0 -2px 0 #7a5228,0 -6px 18px #0009}
+#shadow{position:fixed;bottom:20.5vh;left:50%;transform:translateX(-50%);width:70vw;height:5vh;
+ background:radial-gradient(closest-side,#000c,#0000);border-radius:50%}
+#plinth{position:fixed;bottom:22vh;left:50%;transform:translateX(-50%);width:82vw;height:9vh;
+ background:linear-gradient(#5b3a1c,#3f2810),repeating-linear-gradient(90deg,#0002 0 2px,#0000 2px 7px);
+ border-radius:1.6vw 1.6vw 0 0;box-shadow:inset 0 2px 3px #ffffff22,0 4px 14px #000a;
+ display:flex;align-items:center;justify-content:center;gap:6vw}
+#bezel{width:22vw;height:6.4vh;background:#121418;border-radius:2vw;
+ box-shadow:inset 0 0 8px #000,0 1px 0 #ffffff18;display:flex;align-items:center;justify-content:center}
+#beatd{font-family:ui-monospace,Menlo,monospace;font-size:4.6vh;color:#dfe8ff;text-shadow:0 0 12px #9fb6ff88}
+#plaque{min-width:24vw;padding:.8vh 3vw;text-align:center;border-radius:1vw;
+ background:linear-gradient(#d9b35c,#a37c33);color:#33210a;font-size:2.2vh;
+ box-shadow:inset 0 1px 0 #ffe9b8,0 2px 5px #0008}
+#mbody{position:fixed;bottom:31vh;left:50%;transform:translateX(-50%);width:72vw;height:56vh;
+ clip-path:polygon(40% 0,60% 0,93% 100%,7% 100%);
+ background:linear-gradient(90deg,#6e4520,#8a5a2b 28%,#7a4e24 52%,#935f2c 78%,#66401d),
+ repeating-linear-gradient(92deg,#0002 0 3px,#0000 3px 10px),
+ linear-gradient(115deg,#ffffff26 2%,#0000 34%)}
+#track{position:fixed;bottom:32vh;left:50%;transform:translateX(-50%);width:72vw;height:52vh;
+ clip-path:polygon(46.5% 0,53.5% 0,60% 100%,40% 100%);
+ background:linear-gradient(#1c1108,#2a1a0d);box-shadow:inset 0 0 12px #000}
+#scale{position:fixed;bottom:34vh;left:50%;transform:translateX(-50%);width:1.2vw;height:46vh;
+ background:repeating-linear-gradient(#c9a04e3d 0 .5vh,#0000 .5vh 3.4vh)}
+#arm{position:fixed;bottom:33.5vh;left:50%;width:1.6vw;height:44vh;margin-left:-.8vw;
+ background:linear-gradient(90deg,#e0bc72,#a8803a);border-radius:1vw;transform-origin:50% 100%}
+#bob{position:absolute;left:50%;transform:translateX(-50%);width:9vw;height:5.6vw;
+ background:radial-gradient(#ffb35c,#c97a1e);border:1px solid #ffd79a66;border-radius:1.4vw}
+#pivot{position:fixed;bottom:33.5vh;left:50%;width:5vw;height:5vw;margin:0 0 -2.5vw -2.5vw;
+ background:radial-gradient(circle at 35% 30%,#e8c87e,#8a6526);border-radius:50%;
+ box-shadow:0 1px 4px #000c}
+#gear{position:fixed;right:4vw;bottom:3vh;background:#1c130b;color:#c9a04e;border:1px solid #c9a04e55;
+ border-radius:2vw;font-size:2.1vh;padding:1.2vh 4vw;font-family:Georgia,serif}
+#cv{display:none;position:fixed;inset:0;flex-direction:column;align-items:center;gap:3.6vh;padding-top:7vh}
+#bpm{font-size:24vw;line-height:1;color:#f0e2c0;font-family:ui-monospace,Menlo,monospace}
+#sig{font-size:8vw;color:#c9a04e}
 .row{display:flex;gap:3vw}
-button{background:#222;color:#eee;border:1px solid #444;border-radius:12px;font-size:6.5vw;padding:3vw 5vw}
-button:active{background:#274}
-#num{background:#222;color:#eee;border:1px solid #444;border-radius:12px;font-size:6.5vw;padding:3vw;width:30vw;text-align:center}
+button{background:#241a10;color:#e8d9b0;border:1px solid #c9a04e66;border-radius:2vw;
+ font-size:6vw;padding:2.6vw 5vw;font-family:Georgia,serif}
+button:active{background:#3a2a16}
+#num{background:#1c130b;color:#e8d9b0;border:1px solid #c9a04e66;border-radius:2vw;
+ font-size:6vw;padding:2.6vw;width:30vw;text-align:center}
 </style></head><body>
-<div id=pv><div id=scene>
-<div class=pyr id=pyrO></div><div class=pyr id=pyrI></div>
+<div id=pv>
+<div id=desk></div><div id=shadow></div>
+<div id=mbody></div><div id=track></div><div id=scale></div>
 <div id=arm><div id=bob></div></div><div id=pivot></div>
-<div id=bpmlbl>--</div>
-<div id=beatlbl></div>
-</div><button id=gear onclick="view(0)">adjust</button></div>
+<div id=plinth><div id=bezel><span id=beatd></span></div><div id=plaque>--</div></div>
+<button id=gear onclick="view(0)">adjust</button>
+</div>
 <div id=cv>
 <div id=bpm>--</div><div id=sig>-/-</div>
 <div class=row>
@@ -468,30 +497,32 @@ button:active{background:#274}
 <button onclick="view(1)">done</button></div>
 </div>
 <script>
-// arm extremes land on the device's beats: keep a continuous phase t0 and nudge it
-// by the smallest modular correction each poll so the swing never snaps sides.
-var per=600,t0=0,quiet=false,th=0,beat=-1,beats=4,tbeat=0;
+// arm extremes land on the device beats: continuous phase t0, nudged by the smallest
+// modular correction each poll. beat count advances client-side at each extreme.
+var per=600,t0=0,quiet=false,th=0,beat=-1,beats=4,tbeat=0,glow=0;
 function show(s){
- bpm.textContent=s.bpm;sig.textContent=s.beats+"/"+s.unit;bpmlbl.textContent=s.bpm;
+ bpm.textContent=s.bpm;sig.textContent=s.beats+"/"+s.unit;
+ plaque.textContent=s.bpm+" bpm";
  var tb=performance.now()+s.nextMs;
  quiet=s.nextMs>s.periodMs*1.2;
  beat=s.beat;beats=s.beats;tbeat=tb;
  if(s.periodMs!=per||!t0){per=s.periodMs;t0=tb}
  else{var e=((tb-t0)%per+per)%per;if(e>per/2)e-=per;t0+=e}
- bob.style.top=(4+(s.bpm-30)/270*60)+"%"}
+ var f=(s.bpm-30)/270;bob.style.top=(6+f*58)+"%"}
 function loop(t){
- while(tbeat&&t>=tbeat){if(beat>=0)beat=(beat+1)%beats;tbeat+=per}
- beatlbl.textContent=(quiet||beat<0)?"":beat+1;
- beatlbl.style.color=beat==0?"#cfc":"#7c7";
+ while(tbeat&&t>=tbeat){if(beat>=0){beat=(beat+1)%beats;glow=beat==0?1.5:.8}tbeat+=per}
+ beatd.textContent=(quiet||beat<0)?"":beat+1;
+ glow*=.9;
+ bob.style.boxShadow="0 0 "+(glow*6)+"vw "+(glow*2)+"vw rgba(255,154,42,"+(glow*.5)+")";
  var tgt=quiet?0:26*Math.cos(Math.PI*(t-t0)/per);
- th+=(tgt-th)*(quiet?0.12:0.5);
+ th+=(tgt-th)*(quiet?.12:.5);
  arm.style.transform="rotate("+th+"deg)";
  requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 function q(u){fetch(u).then(r=>r.json()).then(show)}
 function setBpm(){if(num.value){q("/api/bpm?set="+num.value);num.value="";num.blur()}}
 num.addEventListener("keydown",function(e){if(e.key=="Enter")setBpm()});
-function view(p){pv.style.display=p?"flex":"none";cv.style.display=p?"none":"flex"}
+function view(p){pv.style.display=p?"block":"none";cv.style.display=p?"none":"flex"}
 setInterval(function(){q("/api/state")},1000);q("/api/state")
 </script></body></html>)HTML";
 
@@ -510,7 +541,10 @@ static void webTask(void *) {
 static void webStart() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP("Metronome", "metronome", 1, 0, 8);   // 8 clients; an open AP would let the whole gig conduct
-  s_web.on("/", [] { s_web.send_P(200, "text/html", INDEX_HTML); });
+  s_web.on("/", [] {
+    s_web.sendHeader("Cache-Control", "no-store");   // stale pages hid every UI update
+    s_web.send_P(200, "text/html", INDEX_HTML);
+  });
   s_web.on("/api/state", webSendState);
   s_web.on("/api/bpm", [] {
     if (s_web.hasArg("d"))        bumpTempo(s_web.arg("d").toInt(), 'w');
