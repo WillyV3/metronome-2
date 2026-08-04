@@ -335,7 +335,7 @@ static void goSleep(int restoreSig) {
   vTaskSuspend(s_dispTask);                     // stop redraws so SHHH survives
   vTaskDelay(pdMS_TO_TICKS(20));
   static const uint8_t SHHH[4] = {0x6D, 0x76, 0x76, 0x76};
-  tmShow(SHHH, 0);   // min brightness; TM1637 multiplexes on its own, so SHHH
+  tmShow(SHHH, 2);   // low brightness; TM1637 multiplexes on its own, so SHHH
                      // stays lit through deep sleep (~2mA vs dark)
   g_sig = restoreSig;
   prefs.putInt("bpm", g_bpm.load());
@@ -349,6 +349,10 @@ static void goSleep(int restoreSig) {
   Serial.println("deep sleep (double tap)");
   while (digitalRead(ENC_SW) == LOW) delay(10); // arm only after release, else instant wake
   delay(200);
+  // park the TM1637 bus at idle and hold it — floating CLK/DIO in deep sleep feeds
+  // the chip noise it can read as commands (SHHH was dying at sleep entry)
+  digitalWrite(TM_CLK, HIGH); digitalWrite(TM_DIO, HIGH);
+  gpio_hold_en((gpio_num_t)TM_CLK); gpio_hold_en((gpio_num_t)TM_DIO);
   gpio_deep_sleep_hold_en();
   rtc_gpio_pullup_en((gpio_num_t)ENC_SW);
   rtc_gpio_pulldown_dis((gpio_num_t)ENC_SW);
@@ -532,6 +536,7 @@ button:active{background:#3a2a16}
 <button onclick="setBpm()">set</button></div>
 <div class=row><button onclick="q('/api/sig')">time signature</button>
 <button onclick="view(1)">done</button></div>
+<div class=row><button onclick="doSleep()">shhh</button></div>
 </div>
 <script>
 // arm extremes land on the device beats: continuous phase t0, nudged by the smallest
@@ -560,6 +565,7 @@ function q(u){fetch(u).then(r=>r.json()).then(show)}
 function setBpm(){if(num.value){q("/api/bpm?set="+num.value);num.value="";num.blur()}}
 num.addEventListener("keydown",function(e){if(e.key=="Enter")setBpm()});
 function view(p){pv.style.display=p?"block":"none";cv.style.display=p?"none":"flex"}
+function doSleep(){fetch("/api/sleep");document.body.style.opacity=.25}
 setInterval(function(){q("/api/state")},1000);q("/api/state")
 </script></body></html>)HTML";
 
@@ -589,6 +595,11 @@ static void webStart() {
     webSendState();
   });
   s_web.on("/api/sig", [] { nextSig('W'); webSendState(); });
+  s_web.on("/api/sleep", [] {
+    s_web.send(200, "application/json", "{\"ok\":true}");
+    delay(150);                    // let the response leave before the radio dies
+    goSleep(g_sig.load());         // wake is the physical button only
+  });
   s_web.begin();
   xTaskCreatePinnedToCore(webTask, "web", 4096, nullptr, 2, nullptr, 0);
   Serial.printf("AP up: SSID Metronome, http://%s\n", WiFi.softAPIP().toString().c_str());
@@ -614,6 +625,7 @@ void setup() {
   gpio_deep_sleep_hold_dis();                    // release sleep-held driver pins on wake
   for (int pin : FIL) gpio_hold_dis((gpio_num_t)pin);
   gpio_hold_dis((gpio_num_t)AUD_PIN);
+  gpio_hold_dis((gpio_num_t)TM_CLK); gpio_hold_dis((gpio_num_t)TM_DIO);
   pinMode(TM_CLK, OUTPUT); pinMode(TM_DIO, OUTPUT);
   digitalWrite(TM_CLK, HIGH); digitalWrite(TM_DIO, HIGH);
   g_sigUntilUs = esp_timer_get_time() + 1500000;   // greet with the signature

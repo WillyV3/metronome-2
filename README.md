@@ -5,15 +5,7 @@ KY-040 encoder sets tempo and time signature, passive buzzer does the tock.
 runs its own wifi AP and serves a phone remote — default view is a pendulum
 that swings in sync with the actual beat timing.
 
-## build photos
-
-![finished](photos/finished.jpg)
-
 ![brain side](photos/brain.jpg)
-
-![half built](photos/half-built.jpg)
-
-![on the desk](photos/desk.jpg)
 
 ## wiring
 
@@ -36,7 +28,10 @@ pendulum view by default. `adjust` gets you +/- buttons, type-in bpm, and
 time signature. turning the knob quiets the metronome and it restarts on a
 downbeat at the new tempo — remote does the same thing through the same code.
 
-api: `GET /api/state`, `/api/bpm?d=N` or `?set=N`, `/api/sig`
+api: `GET /api/state`, `/api/bpm?d=N` or `?set=N`, `/api/sig`, `/api/sleep`
+
+double-tap the knob (or hit `shhh` on the adjust page) = deep sleep — a dim SHHH
+stays on the display. press the knob to wake.
 
 ## build
 
@@ -48,5 +43,13 @@ pioarduino core, see `platformio.ini`.
 
 serial hooks at 115200: `+ - t` tempo, `s` sig, `c a` click test, `b` beat
 trace, `?` state, `!` event log dump, `W` wifi toggle.
+
+## build photos
+
+![finished](photos/finished.jpg)
+
+![half built](photos/half-built.jpg)
+
+![on the desk](photos/desk.jpg)
 
 MIT
