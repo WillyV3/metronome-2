@@ -398,7 +398,7 @@ static void serialHook() {
       case 'W': {
         static bool off = false; off = !off;
         if (off) { WiFi.softAPdisconnect(true); WiFi.mode(WIFI_OFF); Serial.println("wifi OFF"); }
-        else { WiFi.mode(WIFI_AP); WiFi.softAP("Metronome", "metronome"); Serial.println("wifi ON"); }
+        else { WiFi.mode(WIFI_AP); WiFi.softAP("Metronome", "metronome", 1, 0, 8); Serial.println("wifi ON"); }
       } break;
       case '!': {                       // event log dump, oldest -> newest
         uint16_t n = g_evN.load();
@@ -440,6 +440,7 @@ body{margin:0;background:#111;color:#eee;font-family:system-ui;overflow:hidden}
 #bob{position:absolute;left:50%;transform:translateX(-50%);width:8vw;height:5.5vw;background:#2f6b40;border:1px solid #6fbf7f;border-radius:1.2vw}
 #pivot{position:absolute;left:50%;bottom:15vh;width:3.6vw;height:3.6vw;margin:0 0 -1.8vw -1.8vw;background:#888;border-radius:50%}
 #bpmlbl{position:absolute;left:50%;bottom:5vh;transform:translateX(-50%);font-size:6vw;color:#7c7;font-variant-numeric:tabular-nums}
+#beatlbl{position:absolute;left:50%;top:4vh;transform:translateX(-50%);font-size:13vw;color:#7c7;font-variant-numeric:tabular-nums}
 #gear{position:fixed;right:4vw;bottom:4vh;background:#222;color:#999;border:1px solid #444;border-radius:10px;font-size:4.5vw;padding:2vw 4vw}
 #cv{display:none;height:100vh;flex-direction:column;align-items:center;gap:4vh;padding-top:6vh}
 #bpm{font-size:26vw;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
@@ -453,6 +454,7 @@ button:active{background:#274}
 <div class=pyr id=pyrO></div><div class=pyr id=pyrI></div>
 <div id=arm><div id=bob></div></div><div id=pivot></div>
 <div id=bpmlbl>--</div>
+<div id=beatlbl></div>
 </div><button id=gear onclick="view(0)">adjust</button></div>
 <div id=cv>
 <div id=bpm>--</div><div id=sig>-/-</div>
@@ -468,15 +470,19 @@ button:active{background:#274}
 <script>
 // arm extremes land on the device's beats: keep a continuous phase t0 and nudge it
 // by the smallest modular correction each poll so the swing never snaps sides.
-var per=600,t0=0,quiet=false,th=0;
+var per=600,t0=0,quiet=false,th=0,beat=-1,beats=4,tbeat=0;
 function show(s){
  bpm.textContent=s.bpm;sig.textContent=s.beats+"/"+s.unit;bpmlbl.textContent=s.bpm;
  var tb=performance.now()+s.nextMs;
  quiet=s.nextMs>s.periodMs*1.2;
+ beat=s.beat;beats=s.beats;tbeat=tb;
  if(s.periodMs!=per||!t0){per=s.periodMs;t0=tb}
  else{var e=((tb-t0)%per+per)%per;if(e>per/2)e-=per;t0+=e}
  bob.style.top=(4+(s.bpm-30)/270*60)+"%"}
 function loop(t){
+ while(tbeat&&t>=tbeat){if(beat>=0)beat=(beat+1)%beats;tbeat+=per}
+ beatlbl.textContent=(quiet||beat<0)?"":beat+1;
+ beatlbl.style.color=beat==0?"#cfc":"#7c7";
  var tgt=quiet?0:26*Math.cos(Math.PI*(t-t0)/per);
  th+=(tgt-th)*(quiet?0.12:0.5);
  arm.style.transform="rotate("+th+"deg)";
@@ -503,7 +509,7 @@ static void webTask(void *) {
 }
 static void webStart() {
   WiFi.mode(WIFI_AP);
-  WiFi.softAP("Metronome", "metronome");   // an open AP would let the whole gig conduct
+  WiFi.softAP("Metronome", "metronome", 1, 0, 8);   // 8 clients; an open AP would let the whole gig conduct
   s_web.on("/", [] { s_web.send_P(200, "text/html", INDEX_HTML); });
   s_web.on("/api/state", webSendState);
   s_web.on("/api/bpm", [] {
